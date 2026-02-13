@@ -1,0 +1,6 @@
+*.json
+*.secret
+*.session
+*.db
+*.dblite
+*.sqlite
