@@ -7,8 +7,11 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_OAEP
 from datetime import datetime, timezone
 import os
+from time import sleep
 
-def start_session(BASE, secret_file, session_file):
+DEBUG = False
+
+def start_session(BASE, secret_file, session_file="session.json"):
     if not os.path.exists(secret_file):
         raise Exception(f"Nie znaleziono pliku {secret_file}")
 
@@ -32,11 +35,20 @@ def start_session(BASE, secret_file, session_file):
             return session
 
 
-
 def authenticate_session(BASE, secret, session_file):
     reference, auth_token = authenticate(BASE, secret)
-    if(auth_check(BASE,reference, auth_token)):
+
+    status = auth_check(BASE,reference, auth_token)
+    while status == 100:
+        sleep(1)
+        print("Oczekiwanie na autoryzację... (status 100)")
+        status = auth_check(BASE,reference, auth_token)
+
+    if(status == 200):
         accessToken, refreshToken, validUntil  = getAccessToken(BASE, auth_token)
+        if not accessToken:
+            print("Nie można uzyskać access tokena")
+            return None
         new_session = {
             "accessToken": accessToken,
             "refreshToken": refreshToken,
@@ -46,13 +58,14 @@ def authenticate_session(BASE, secret, session_file):
             json.dump(new_session, f)
         return new_session
 
+
 def authenticate(BASE, secret):
     # 1) Pobierz challenge
     r = requests.post(f"{BASE}/auth/challenge")
-    print("Challenge status:", r.status_code)
+    if(DEBUG): print("Challenge status:", r.status_code)
     data = r.json()
     challenge_id = data.get("challenge")
-    print("Challenge:", challenge_id)
+
     timestamp = data.get("timestampMs")
 
     # 2) Pobierz certyfikaty publiczne
@@ -117,7 +130,7 @@ def authenticate(BASE, secret):
 
     auth_token = auth.json().get("authenticationToken").get("token")
     reference = auth.json().get("referenceNumber")
-    # print("AccessToken:", auth_token)
+    # if(DEBUG): print("AccessToken:", auth_token)
     
     return reference, auth_token
 
@@ -135,11 +148,12 @@ def auth_check(BASE, reference, auth_token):
         headers=headers,
         data=body
     )
-    print("\nAuthorisation:")
     status = auth.json().get("status")
-    print(status.get("description"))
-    if(status.get("details")): print(status.get("details"))
-    return auth.status_code == 200
+    if(DEBUG): print("\nAuthorisation:")
+    if(DEBUG): print(status.get("description"))
+    if(DEBUG and status.get("details")): print(status.get("details"))
+
+    return status.get("code")
 
 def getAccessToken(BASE, auth_token):
     headers = {
@@ -147,12 +161,12 @@ def getAccessToken(BASE, auth_token):
         "Authorization": "Bearer "+str(auth_token),
     }
     tokens = requests.post(f"{BASE}/auth/token/redeem", headers=headers)
-    print("\nAccessToken:")
-    print("Status code:",tokens.status_code)
+    if(DEBUG): print("\nAccessToken:")
+    if(DEBUG): print("Status code:",tokens.status_code)
 
     if(tokens.status_code != 200):
         print(tokens.text)
-        return None, None
+        return None, None, None
     
     accessToken = tokens.json().get("accessToken").get("token")
     refreshToken = tokens.json().get("refreshToken").get("token")

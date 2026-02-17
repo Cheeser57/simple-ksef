@@ -1,6 +1,10 @@
+__pycache__
+*.pyc
 *.json
 *.secret
+*.config
 *.session
 *.db
-*.dblite
-*.sqlite
+*.db-shm
+*.db-wal
+/invoices
