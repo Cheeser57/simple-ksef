@@ -14,7 +14,7 @@ DATA_FOLDER = "data"
 BASE = "https://api.ksef.mf.gov.pl/v2"
 START_DATE = "2026-01-01T00:00:00"
 SUBJECTS = ["Subject1", "Subject2", "Subject3"] 
-USE_MOCK_DATA = False
+USE_MOCK_DATA = True
 
 def data_path(filename):
     return os.path.join(DATA_FOLDER, filename)
@@ -43,8 +43,7 @@ def set_date_this_year():
 tokenPath = data_path("secret.json")
 sessionPath = data_path("session.json")
 
-# Dynamic ksef extraction date logic
-# ========================
+# ksef extraction date
 try:
     with open(sessionPath, 'r') as f:
         session_data = json.load(f)
@@ -240,6 +239,17 @@ else:
 # Status container - always visible
 status_container = st.empty()
 
+# Display the update status message if it exists from the last run
+if "last_update_inserted_count" in st.session_state:
+    inserted = st.session_state["last_update_inserted_count"]
+    if inserted > 0:
+        status_container.success(f"Aktualizacja zakończona, dodano {inserted} nowych faktur.")
+    else:
+        status_container.info("Brak nowych faktur do wstawienia.")
+    # Clear the value so the message doesn't persist on the next rerun
+    del st.session_state["last_update_inserted_count"]
+
+
 #   KSeF
 #   authorisation & update logic
 
@@ -295,14 +305,12 @@ if should_run:
     with st.spinner("Aktualizowanie z KSeF..."):
         inserted = run_update()
         
+        # Store the number of inserted invoices to show a message after the rerun
+        st.session_state["last_update_inserted_count"] = inserted
+
         # Flag that a refresh is needed after the KSeF update
         st.session_state["rerun_needed"] = True
         st.session_state["updated_once"] = True
-
-        if(inserted > 0):
-            st.success(f"Aktualizacja zakończona, dodano {inserted} nowych faktur.")
-        else: 
-            st.info(f"Brak nowych faktur do wstawienia.")
         
         # Rerun to reload the dataframe with the new data and refresh the UI
         st.rerun()
