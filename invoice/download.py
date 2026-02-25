@@ -1,5 +1,5 @@
 import requests
-
+import os
 def download_metadata(BASE, auth_token, subject="Subject1", from_date="2026-01-01T00:00:00", to_date="2026-03-01T00:00:00"):
     headers = {
         "Content-Type": "application/json",
@@ -28,7 +28,7 @@ def download_metadata(BASE, auth_token, subject="Subject1", from_date="2026-01-0
         return None, f"Błąd pobierania metadanych: {meta_list.status_code}"
     return meta_list.json().get("invoices"), None
 
-def download_invoice(BASE, auth_token, ksef_number):
+def download_invoice(BASE, auth_token, ksef_number, path="invoices"):
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer "+str(auth_token),
@@ -42,6 +42,7 @@ def download_invoice(BASE, auth_token, ksef_number):
     if invoice.status_code != 200:
         print(invoice.text)
         return
-    save_path = f"invoices/invoice_{ksef_number}.xml"
+    
+    save_path = os.path.join(path, f"invoice_{ksef_number}.xml") 
     with open(save_path, "wb") as f:
         f.write(invoice.content)

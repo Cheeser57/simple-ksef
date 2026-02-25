@@ -14,14 +14,18 @@ DATA_FOLDER = "data"
 BASE = "https://api.ksef.mf.gov.pl/v2"
 START_DATE = "2026-01-01T00:00:00"
 SUBJECTS = ["Subject1", "Subject2", "Subject3"] 
-USE_MOCK_DATA = True
 
-def data_path(filename):
-    return os.path.join(DATA_FOLDER, filename)
+# For Debugging
+USE_MOCK_DATA = False
+RESET_DB_ON_START = False
 
+# Default Streamlit page configuration for wide layout - must be in a function
 def wide_space_default():
     st.set_page_config(layout="wide")
 wide_space_default()
+
+def data_path(filename):
+    return os.path.join(DATA_FOLDER, filename)
 
 def set_rerun_flag():
     st.session_state["rerun_needed"] = True
@@ -43,7 +47,7 @@ def set_date_this_year():
 tokenPath = data_path("secret.json")
 sessionPath = data_path("session.json")
 
-# ksef extraction date
+# last ksef extraction date
 try:
     with open(sessionPath, 'r') as f:
         session_data = json.load(f)
@@ -62,13 +66,17 @@ end_date = (datetime.now() + timedelta(days=1)).isoformat()
 # initialize database (only once per Streamlit session)
 if "db" not in st.session_state:
     # Do not drop tables on normal load
-    st.session_state["db"] = Database(data_path("ksef.db"), drop_tables=False)
+    st.session_state["db"] = Database(data_path("ksef.db"), drop_tables=RESET_DB_ON_START)
 db = st.session_state["db"]
 
-# Streamlit UI
+# ================
+#region Streamlit 
+# UI and filtering logic
+# ================
 st.title("Faktury")
 
-# parametry wyboru
+# Sidebar with filters
+
 st.sidebar.title("**Filtry**")
 subject = st.sidebar.selectbox("Podmiot", SUBJECTS, index=1, key="subject_select", on_change=set_rerun_flag)
 

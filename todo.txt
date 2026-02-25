@@ -1,0 +1,7 @@
+1. naprawić możliwość nie wybrania żadnej firmy DONE
+2. poprawić formatowanie subject DONE
+3. poprawić formatowanie typu DONE
+4. poprawić przycisk wyboru opłacenia  DONE
+5. dodąc przycisk pobrania faktury DONE
+6. dodać przycisk generowania pliku sekretu
+7. dodać generator exe file

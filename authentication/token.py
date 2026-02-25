@@ -11,31 +11,82 @@ from time import sleep
 
 DEBUG = False
 
-def start_session(BASE, secret_file, session_file="session.json"):
+def start_multi_session(BASE, secret_file, session_file="session.json"):
     if not os.path.exists(secret_file):
         raise Exception(f"Nie znaleziono pliku {secret_file}")
 
     with open(secret_file, "r") as f:
-        secret = json.load(f)
+        secrets = json.load(f)
     
     if not os.path.exists(session_file):
-        return authenticate_session(BASE, secret, session_file)
-    
-    with open(session_file, "r") as f:
-        session = json.load(f)
-
-        ts = datetime.fromisoformat(session.get("validUntil"))
-        now = datetime.now(timezone.utc)
-        if ts < now:
-            print("Token wygasł. Uzyskiwanie nowego tokena...")
-            return authenticate_session(BASE, secret, session_file)
+        session = {}
+        for id in secrets:
+            new_session = authenticate_session(BASE, secrets[id])
+            if new_session: session[id] = new_session
+        
+    else: 
+        with open(session_file, "r") as f:
+            session = json.load(f)
+        for id in secrets:
+            # Sprawdź czy sesja dla tego id istnieje
+            if id not in session:
+                new_session = authenticate_session(BASE, secrets[id])
+                if new_session: session[id] = new_session
+                continue
             
+            # Sprawdź zy sesja dla tego id jest nadal ważna
+            ts = datetime.fromisoformat(session[id].get("validUntil"))
+            now = datetime.now(timezone.utc)
+            if ts < now:
+                new_session = authenticate_session(BASE, secrets[id])
+                if new_session: session[id] = new_session
+                continue
+                
+            print(f"Token {id} jest nadal ważny.")
+
+    with open(session_file, "w") as f:
+        json.dump(session, f)
+    return session
+
+def start_session(BASE, secret_file, session_file="session.json", company_name=None):
+    if not os.path.exists(secret_file):
+        raise Exception(f"Nie znaleziono pliku {secret_file}")
+
+    with open(secret_file, "r") as f:
+        secret_ = json.load(f)
+        if company_name:
+            secret = secret_.get(company_name)
+            if not secret_:
+                raise Exception(f"Nie znaleziono danych dla firmy {company_name} w pliku {secret_file}")
+            else:
+                secret = secret_.copy()
+    
+    if not os.path.exists(session_file):
+        session = authenticate_session(BASE, secret, session_file)
+    else:
+        with open(session_file, "r") as f:
+            session_ = json.load(f)
+            if company_name: session = session_.get(company_name)
+            else: session = session_.copy()
+
+            ts = datetime.fromisoformat(session.get("validUntil"))
+            now = datetime.now(timezone.utc)
+            if ts < now:
+                print("Token wygasł. Uzyskiwanie nowego tokena...")
+                session = authenticate_session(BASE, secret, session_file)
+            else:
+                print("Token jest nadal ważny.")
+                
+    with open(session_file, "w") as f:
+        if company_name:
+            session_[company_name] = session
+            json.dump(session_, f)
         else:
-            print("Token jest nadal ważny.")
-            return session
+            json.dump(session, f)
+    return session
 
 
-def authenticate_session(BASE, secret, session_file):
+def authenticate_session(BASE, secret):
     reference, auth_token = authenticate(BASE, secret)
 
     status = auth_check(BASE,reference, auth_token)
@@ -54,8 +105,7 @@ def authenticate_session(BASE, secret, session_file):
             "refreshToken": refreshToken,
             "validUntil": validUntil
         }
-        with open(session_file, "w") as f:
-            json.dump(new_session, f)
+
         return new_session
 
 
